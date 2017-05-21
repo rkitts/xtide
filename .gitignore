@@ -1,0 +1,10 @@
+.cproject
+.deps
+.project
+.settings
+.libs
+CMakeLists.txt
+config.log
+*.o
+*.lo
+*~
