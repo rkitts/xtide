@@ -38,7 +38,11 @@ public:
   enum Pad {noPadding, fixedWidth};
   void print    (Dstr &text_out,
                  Pad pad = noPadding) const;  // X.XXXX N/S, X.XXXX E/W
+  // As printLat, except it doesn't include the character for degrees.
+  void printJSONLat(Dstr &text_out) const;
   void printLat (Dstr &text_out) const;       // X.X N/S
+  // As printLng, except it doesn't include the character for degrees.
+  void printJSONLng (Dstr &text_out) const;
   void printLng (Dstr &text_out) const;       // X.X E/W
 
 protected:

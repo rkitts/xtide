@@ -1,7 +1,7 @@
 // $Id: CurrentBearing.hh 5748 2014-10-11 19:38:53Z flaterco $
 
 /*
-    CurrentBearing:  Store and print <int>° or <int>° true, or null.
+    CurrentBearing:  Store and print <int>ï¿½ or <int>ï¿½ true, or null.
 
     Copyright (C) 1998  David Flater.
 
@@ -46,6 +46,7 @@ public:
   // necessary, it is replaced with the UTF-8 or VT100 sequence by the
   // caller.
   void print (Dstr &text_out) const;
+  void printJSON (Dstr &text_out) const;
 
 protected:
   uint16_t _degrees;

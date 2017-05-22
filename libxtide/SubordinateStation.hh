@@ -48,9 +48,13 @@ public:
                           TideEventsOrganizer &organizer,
                           TideEventsFilter filter = noFilter);
 
+  const HairyOffsets _offsets;
+  const bool haveFloodBegins();
+  const bool haveEbbBegins();
+
 protected:
 
-  const HairyOffsets _offsets;
+
 
   // predictTideLevel cached bracket.  The code has gotten wordy
   // enough already without renaming these all to
@@ -60,8 +64,6 @@ protected:
   Units::PredictionUnits cacheUnits;
 
   const bool isSubordinateStation();
-  const bool haveFloodBegins();
-  const bool haveEbbBegins();
 
   // Wrapper for findSimpleMarkCrossing that does necessary
   // compensations for substation interpolation.  Like
