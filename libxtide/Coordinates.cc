@@ -73,13 +73,29 @@ void Coordinates::print (Dstr &text_out, Pad pad) const {
       lngc = 'E';
     char temp[80];
     if (pad == fixedWidth)
-      sprintf (temp, "%7.4f° %c, %8.4f° %c", latn, latc, lngn, lngc);
+      sprintf (temp, "%7.4fï¿½ %c, %8.4fï¿½ %c", latn, latc, lngn, lngc);
     else
-      sprintf (temp, "%6.4f° %c, %6.4f° %c", latn, latc, lngn, lngc);
+      sprintf (temp, "%6.4fï¿½ %c, %6.4fï¿½ %c", latn, latc, lngn, lngc);
     text_out = temp;
   }
 }
 
+void Coordinates::printJSONLat (Dstr &text_out) const {
+  if (_isNull)
+    text_out = "NULL";
+  else {
+    double latn (latitude);
+    char latc;
+    if (latn < 0.0) {
+      latn = -latn;
+      latc = 'S';
+    } else
+      latc = 'N';
+    char temp[80];
+    sprintf (temp, "%3.4f %c", latn, latc);
+    text_out = temp;
+  }
+}
 
 void Coordinates::printLat (Dstr &text_out) const {
   if (_isNull)
@@ -93,7 +109,24 @@ void Coordinates::printLat (Dstr &text_out) const {
     } else
       latc = 'N';
     char temp[80];
-    sprintf (temp, "%3.1f° %c", latn, latc);
+    sprintf (temp, "%3.1fï¿½ %c", latn, latc);
+    text_out = temp;
+  }
+}
+
+void Coordinates::printJSONLng (Dstr &text_out) const {
+  if (_isNull)
+    text_out = "NULL";
+  else {
+    double lngn (longitude);
+    char lngc;
+    if (lngn < 0.0) {
+      lngn = -lngn;
+      lngc = 'W';
+    } else
+      lngc = 'E';
+    char temp[80];
+    sprintf (temp, "%3.4f %c", lngn, lngc);
     text_out = temp;
   }
 }
@@ -111,7 +144,7 @@ void Coordinates::printLng (Dstr &text_out) const {
     } else
       lngc = 'E';
     char temp[80];
-    sprintf (temp, "%3.1f° %c", lngn, lngc);
+    sprintf (temp, "%3.1fï¿½ %c", lngn, lngc);
     text_out = temp;
   }
 }

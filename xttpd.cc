@@ -1,6 +1,6 @@
 // $Id: xttpd.cc 5749 2014-10-11 19:42:10Z flaterco $
 
-/*  xttpd  XTide web server.
+/*  x`ttpd  XTide web server.
 
     Copyright (C) 1998  David Flater.
 
@@ -23,6 +23,7 @@
 #include "libxtide/PixelatedGraph.hh"
 #include "libxtide/RGBGraph.hh"
 #include "libxtide/SVGGraph.hh"
+#include "libxtide/SubordinateStation.hh"
 using namespace libxtide;
 #include "ZoneIndex.hh"
 
@@ -215,7 +216,6 @@ seismic events, subsidence, uplift, or changes in global sea level.\n\
 </p></blockquote>\n";
 }
 
-
 static void endPage (int s) {
   Dstr pageEnd ("<hr>");
   pageEnd += "<p> <a href=\"/\">Start over</a> <br>\n";
@@ -351,6 +351,232 @@ very large, so if you are on a slow connection, don't use it.</p>\n";
   endPage (s);
 }
 
+// Surrounds name with quotes and adds a colon. So
+// "name":
+static void jsonMemberName(Dstr &dest, const Dstr &name)
+{
+	dest += "\"";
+	dest += name;
+	dest += "\":";
+	return;
+}
+
+static void jsonBoolVal(Dstr &dest, const Dstr &name, const bool value)
+{
+	jsonMemberName(dest, name);
+	Dstr val;
+	if(value){
+		val = "true";
+	}
+	else{
+		val = "false";
+	}
+	dest += val;
+	return;
+}
+
+static void jsonStringVal(Dstr &dest, const Dstr &name, const Dstr &value)
+{
+	jsonMemberName(dest, name);
+	dest += "\"";
+	dest += value;
+	dest += "\"";
+	return;
+}
+
+static void jsonNumVal(Dstr &dest, const Dstr &name, const Dstr &value)
+{
+	jsonMemberName(dest, name);
+	dest += value;
+	return;
+}
+
+static void jsonString(Dstr &d, const Dstr value)
+{
+	d += "\"";
+	d += value;
+	d += "\"";
+	return;
+}
+
+static void jsonFoundResponse(int s, Dstr &entity)
+{
+	Dstr header("HTTP/1.1 200 OK\r\n");
+	header += "Content-type: application/json; charset=utf-8\r\n";
+	header += "Content-length: ";
+	header += entity.length();
+	header += "\r\r\r\n\r\n";
+
+  checkedWrite(s, header.aschar(), header.length());
+  checkedWrite(s, entity.aschar(), entity.length());
+  close (s);
+  exit (0);
+}
+
+/*
+ * xtideRef:<number> - The location index in Xtide
+ * name: <string>
+ * refStation: <boolean>
+ * current: <boolean>
+ * floodBearing: <string>  - can be empty. Might include the word "true"
+ * ebbBearing: <string> - can be empty. Might include the word  "true"
+ * note: <string> - can be empty
+ * timezone: <string>
+ * location: {
+ * 		lat: <number>
+ * 		lon: <number>
+ * }
+ */
+
+static void listLocationJSON (Dstr &d, int xtideRef, const StationRef *sr) {
+  assert (sr);
+  d += "{";
+  jsonNumVal(d, "xtideRef", xtideRef);
+  d+= ",";
+
+  jsonStringVal(d, "name", sr->name);
+  d += ",";
+  jsonBoolVal(d, "ref", sr->isReferenceStation);
+  d += ",";
+
+  Station *station = sr->load();
+
+  jsonBoolVal(d, "current", station->isCurrent);
+  d += ",";
+
+  Dstr bearing = "";
+
+  if(!station->maxCurrentBearing.isNull()){
+  	station->maxCurrentBearing.printJSON(bearing);
+  }
+	jsonStringVal(d, "floodBearing", bearing);
+	d += ",";
+
+	bearing = "";
+  if(!station->minCurrentBearing.isNull()){
+  	station->minCurrentBearing.printJSON(bearing);
+  }
+	jsonStringVal(d, "ebbBearing", bearing);
+	d += ",";
+
+	Dstr note = "";
+  if(station->note != NULL){
+  	note = station->note;
+  	note.repchar('\n', ' ');
+  }
+  jsonStringVal(d, "note", note);
+  d += ",";
+
+  jsonStringVal(d, "timezone", station->timezone);
+  d += ",\"location\":{";
+
+  Dstr location;
+  station->coordinates.printJSONLat(location);
+  jsonStringVal(d, "lat", location);
+  d += ",";
+
+  station->coordinates.printJSONLng(location);
+  jsonStringVal(d, "lon", location);
+  d += "}";
+
+  SubordinateStation *subStation = dynamic_cast<SubordinateStation*>(station);
+  if(subStation){
+  	Dstr slackBeforeEbbOffset("0");
+  	if(subStation->haveEbbBegins()){
+  		slackBeforeEbbOffset = Dstr(subStation->_offsets.ebbBegins().s());
+  	}
+
+  	Dstr slackBeforeFloodOffset("0");
+  	if(subStation->haveFloodBegins()){
+  	 slackBeforeFloodOffset = Dstr(subStation->_offsets.floodBegins().s());
+  	}
+
+  	Dstr maxFloodOffset(subStation->_offsets.maxTimeAdd().s());
+  	Dstr maxEbbOffset(subStation->_offsets.minTimeAdd().s());
+
+  	Dstr maxFloodSpdMult(subStation->_offsets.maxLevelMultiply());
+  	Dstr maxEbbSpdMult(subStation->_offsets.minLevelMultiply());
+
+
+  	d += ",\"offsets\":{";
+  	jsonNumVal(d, "slackBeforeEbbOffset", slackBeforeEbbOffset);
+  	d += ",";
+  	jsonNumVal(d, "maxEbbOffset", maxEbbOffset);
+  	d += ",";
+  	jsonNumVal(d, "slackBeforeFloodOffset", slackBeforeFloodOffset);
+  	d += ",";
+  	jsonNumVal(d, "maxFloodOffset", maxFloodOffset);
+  	d += ",";
+  	jsonNumVal(d, "maxEbbSpdMultiplier", maxEbbSpdMult);
+  	d += ",";
+  	jsonNumVal(d, "maxFloodSpdMultiplier", maxFloodSpdMult);
+  	MetaFieldVector::const_iterator it = station->_metadata.begin();
+  	while (it != station->_metadata.end()) {
+  		if(it->name == "Reference"){
+  			d += ",";
+  			jsonStringVal(d, it->name, it->value);
+  			break;
+  		}
+  		++it;
+  	}
+  	d += "}";
+  }
+  d += "}";
+
+  return;
+}
+
+
+static void jsonLocationCount(int s)
+{
+
+  unsigned long recordCount = Global::stationIndex().size();
+  Dstr pageText("{\"recordCount\":");
+  pageText += recordCount;
+  pageText += "}\r\n";
+  jsonFoundResponse(s, pageText);
+  return;
+}
+
+void jsonAllLocations(unsigned long stationIndex, int s) {
+	unsigned long recordCount = Global::stationIndex().size();
+	Dstr pageText("[");
+	for (stationIndex = 0; stationIndex < recordCount; stationIndex++) {
+		if (stationIndex != 0) {
+			pageText += ","; // Record separator
+		}
+		listLocationJSON(pageText, stationIndex,
+				Global::stationIndex()[stationIndex]);
+	}
+	pageText += "]";
+	jsonFoundResponse(s, pageText);
+}
+
+static void jsonLocation(Dstr requestString, int s)
+{
+	unsigned long stationIndex;
+
+  Dstr loc (requestString);
+  loc /= strlen("/jsonlocations");
+  if(loc.length() == 0 || loc == "/"){
+		jsonAllLocations(stationIndex, s);
+  }
+  else{
+  	// Remove leading "/"
+  	loc /= 1;
+  	if (sscanf (loc.aschar(), "%lu", &stationIndex) != 1) {
+     notFoundBarf (s);
+  	}
+  	if (stationIndex >= Global::stationIndex().size()) {
+  		notFoundBarf (s);
+  	}
+    Dstr pageText ("");
+    listLocationJSON(pageText, stationIndex, Global::stationIndex()[stationIndex]);
+    jsonFoundResponse(s, pageText);
+  }
+
+  return;
+}
 
 static void indexPage (int s) {
   Dstr pageText ("\
@@ -1097,6 +1323,10 @@ static void handleRequest (const sockaddr *addr, int s) {
     indexPage (s);
   else if (filename == "/tricks.html")
     tricks (s);
+  else if(filename == "/jsonlocations/count")
+  	jsonLocationCount(s);
+  else if(filename %= "/jsonlocations")
+  	jsonLocation(filename, s);
   else if (filename %= "/locations/")
     locationPage (s, filename);
   else if (filename %= "/graphs/")
@@ -1153,18 +1383,33 @@ static void dontBeRoot() {
   }
 }
 
+int isDebugMode()
+{
+	int retVal = 0;
+	if(getenv("XTTPD_DEBUG") != NULL){
+		retVal = 1;
+	}
+	return(retVal);
+}
 
 int main (int argc, char **argv) {
 
-  // To run on console, deactivate this block.
-  Global::setDaemonMode();
-  pid_t fpid (fork());
-  if (fpid == -1) {
-    Global::xperror ("fork");
-    exit (-1);
+  int debugMode = isDebugMode();
+  if(debugMode){
+	Global::log("In Debug Mode", LOG_WARNING);
   }
-  if (fpid)
-    exit (0);
+  // To run on console, deactivate this block.
+  if(!debugMode){
+  	Global::setDaemonMode();
+  	pid_t fpid (fork());
+		if (fpid == -1) {
+			Global::xperror ("fork");
+			exit (-1);
+		}
+		if (fpid){
+			exit (0);
+		}
+  }
 
   int listenSocket;
 
@@ -1181,7 +1426,10 @@ int main (int argc, char **argv) {
       portNumberEvade = parseAddress (portnum, addr, argv[1]);
     setupSocket (portnum, addr, listenSocket);
   }
-  dontBeRoot();
+
+  if(!debugMode){
+  	dontBeRoot();
+  }
 
   // An unfortunate consequence of needing to drop root ASAP is that
   // failure to bind the port prevents xttpd -v from working.

@@ -195,12 +195,12 @@ public:
                     Direction direction,
                     unsigned howMany);
 
+  const MetaFieldVector _metadata;
 
 protected:
 
   const StationRef &    _stationRef;
   ConstituentSet        _constituents;
-  const MetaFieldVector _metadata;
 
 
   // To get all tide events falling between t1 and t2, you have to

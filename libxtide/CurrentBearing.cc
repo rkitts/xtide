@@ -1,7 +1,7 @@
 // $Id: CurrentBearing.cc 5748 2014-10-11 19:38:53Z flaterco $
 
 /*
-    CurrentBearing:  Store and print <int>° or <int>° true, or null.
+    CurrentBearing:  Store and print <int>ï¿½ or <int>ï¿½ true, or null.
 
     Copyright (C) 1998  David Flater.
 
@@ -37,9 +37,15 @@ CurrentBearing::CurrentBearing (uint16_t degrees, bool isTrue):
 void CurrentBearing::print (Dstr &text_out) const {
   assert (!_isNull);
   text_out = _degrees;
-  text_out += '°';
+  text_out += 'ï¿½';
   if (isDegreesTrue)
     text_out += " true";
 }
 
+void CurrentBearing::printJSON(Dstr &text_out) const {
+  assert (!_isNull);
+  text_out = _degrees;
+  if (isDegreesTrue)
+    text_out += " true";
+}
 }
