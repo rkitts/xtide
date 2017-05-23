@@ -431,7 +431,7 @@ static void jsonFoundResponse(int s, Dstr &entity)
 static void listLocationJSON (Dstr &d, int xtideRef, const StationRef *sr) {
   assert (sr);
   d += "{";
-  jsonNumVal(d, "xtideRef", xtideRef);
+  jsonNumVal(d, "xtideId", xtideRef);
   d+= ",";
 
   jsonStringVal(d, "name", sr->name);
